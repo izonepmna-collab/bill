@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>I Zone – Settings</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .settings-grid .full { grid-column: 1 / -1; }
+    .logo-preview { width: 120px; height: 80px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); display: none; }
+    .logo-preview.visible { display: block; }
+    .logo-upload-area {
+      border: 2px dashed var(--border); border-radius: 10px; padding: 20px;
+      text-align: center; cursor: pointer; transition: border-color 0.2s;
+      color: var(--text-muted); font-size: 14px;
+    }
+    .logo-upload-area:hover { border-color: var(--primary); color: var(--text); }
+    .logo-upload-area input { display: none; }
+    .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+    .settings-section h3 { font-size: 16px; font-weight: 700; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+    .pill { display: inline-block; background: var(--primary-glow); color: var(--primary); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; }
+    .divider-h { border: 0; border-top: 1px solid var(--border); margin: 20px 0; }
+  </style>
+</head>
+<body>
+<div class="products-layout">
+
+  <!-- Sidebar -->
+  <aside class="products-sidebar">
+    <div class="sidebar-header">
+      <div class="logo"><span class="logo-icon">🖨</span><span>I Zone</span></div>
+      <div class="nav-links">
+        <a href="index.html"    class="nav-link">🧾 Billing</a>
+        <a href="bills.html"    class="nav-link">📂 Bills</a>
+        <a href="products.html" class="nav-link">📦 Products</a>
+        <a href="settings.html" class="nav-link active">⚙️ Settings</a>
+      </div>
+    </div>
+  </aside>
+
+  <main class="products-main">
+    <div class="page-title">⚙️ Shop Settings</div>
+    <div class="page-sub">Update your shop details. These will appear on every printed bill.</div>
+
+    <!-- Shop Identity -->
+    <div class="settings-section">
+      <h3>🏪 Shop Identity</h3>
+      <div class="settings-grid">
+        <div class="form-group-dark full">
+          <label>Shop Name</label>
+          <input type="text" id="s-shop-name" placeholder="e.g. I ZONE">
+        </div>
+        <div class="form-group-dark full">
+          <label>Tagline / Description</label>
+          <input type="text" id="s-tagline" placeholder="e.g. High Quality Printing & Browsing Services">
+        </div>
+      </div>
+
+      <hr class="divider-h">
+      <div class="form-group-dark">
+        <label>Logo</label>
+        <div style="display:flex; align-items:center; gap:16px; margin-top:4px;">
+          <img id="logo-preview" class="logo-preview" alt="Logo preview">
+          <div>
+            <div class="logo-upload-area" onclick="document.getElementById('logo-file').click()">
+              <input type="file" id="logo-file" accept="image/*" onchange="handleLogoUpload(event)">
+              📁 Click to upload logo (PNG / JPG / SVG)
+            </div>
+            <button class="btn btn-red-outline btn-sm" onclick="removeLogo()" style="margin-top:8px; width:auto; display:inline-flex;">✕ Remove Logo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contact & Address -->
+    <div class="settings-section">
+      <h3>📍 Address &amp; Contact</h3>
+      <div class="settings-grid">
+        <div class="form-group-dark full">
+          <label>Address Line</label>
+          <input type="text" id="s-address" placeholder="Street / Building / Area">
+        </div>
+        <div class="form-group-dark full">
+          <label>City, State</label>
+          <input type="text" id="s-city" placeholder="e.g. Ernakulam, Kerala">
+        </div>
+        <div class="form-group-dark">
+          <label>Phone</label>
+          <input type="text" id="s-phone" placeholder="+91 00000 00000">
+        </div>
+        <div class="form-group-dark">
+          <label>Email (optional)</label>
+          <input type="email" id="s-email" placeholder="shop@email.com">
+        </div>
+        <div class="form-group-dark">
+          <label>GSTIN (optional)</label>
+          <input type="text" id="s-gstin" placeholder="22AAAAA0000A1Z5">
+        </div>
+      </div>
+    </div>
+
+    <!-- Invoice Settings -->
+    <div class="settings-section">
+      <h3>🔢 Invoice Settings</h3>
+      <div class="settings-grid">
+        <div class="form-group-dark">
+          <label>Invoice Prefix</label>
+          <input type="text" id="s-bill-prefix" placeholder="e.g. INV or IZONE">
+        </div>
+        <div class="form-group-dark">
+          <label>Next Invoice Number <span class="pill">auto-increments</span></label>
+          <input type="number" id="s-next-invoice" min="1" placeholder="e.g. 1">
+        </div>
+      </div>
+      <div style="margin-top:10px; font-size:13px; color: var(--text-muted);">
+        Preview: <strong id="invoice-preview" style="color:var(--primary);">INV-0001</strong>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:12px;">
+      <button class="btn" onclick="saveSettings()">💾 Save Settings</button>
+      <button class="btn btn-outline" onclick="location.href='index.html'">← Back to Billing</button>
+    </div>
+  </main>
+</div>
+
+<script>
+  let logoBase64 = '';
+
+  async function loadSettings() {
+    try {
+      const res  = await fetch('/api/settings');
+      const data = await res.json();
+
+      setValue('s-shop-name',    data.shop_name    || '');
+      setValue('s-tagline',      data.tagline      || '');
+      setValue('s-address',      data.address      || '');
+      setValue('s-city',         data.city         || '');
+      setValue('s-phone',        data.phone        || '');
+      setValue('s-email',        data.email        || '');
+      setValue('s-gstin',        data.gstin        || '');
+      setValue('s-bill-prefix',  data.bill_prefix  || 'INV');
+      setValue('s-next-invoice', data.next_invoice || '1');
+
+      logoBase64 = data.logo_base64 || '';
+      if (logoBase64) {
+        const img = document.getElementById('logo-preview');
+        img.src = logoBase64;
+        img.classList.add('visible');
+      }
+
+      updatePreview();
+    } catch {
+      showToast('⚠️ Could not load settings. Server may be offline.', 'warn');
+    }
+  }
+
+  function updatePreview() {
+    const prefix = document.getElementById('s-bill-prefix').value || 'INV';
+    const num    = String(document.getElementById('s-next-invoice').value || 1).padStart(4,'0');
+    document.getElementById('invoice-preview').textContent = `${prefix}-${num}`;
+  }
+
+  document.getElementById('s-bill-prefix').addEventListener('input', updatePreview);
+  document.getElementById('s-next-invoice').addEventListener('input', updatePreview);
+
+  function handleLogoUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showToast('Logo must be under 2MB', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      logoBase64 = ev.target.result;
+      const img = document.getElementById('logo-preview');
+      img.src = logoBase64;
+      img.classList.add('visible');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeLogo() {
+    logoBase64 = '';
+    const img = document.getElementById('logo-preview');
+    img.src = '';
+    img.classList.remove('visible');
+    document.getElementById('logo-file').value = '';
+  }
+
+  async function saveSettings() {
+    const payload = {
+      shop_name:    document.getElementById('s-shop-name').value.trim(),
+      tagline:      document.getElementById('s-tagline').value.trim(),
+      address:      document.getElementById('s-address').value.trim(),
+      city:         document.getElementById('s-city').value.trim(),
+      phone:        document.getElementById('s-phone').value.trim(),
+      email:        document.getElementById('s-email').value.trim(),
+      gstin:        document.getElementById('s-gstin').value.trim(),
+      bill_prefix:  document.getElementById('s-bill-prefix').value.trim() || 'INV',
+      next_invoice: document.getElementById('s-next-invoice').value || '1',
+      logo_base64:  logoBase64
+    };
+
+    try {
+      const res = await fetch('/api/settings', {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error();
+      showToast('✅ Settings saved successfully!');
+      updatePreview();
+    } catch {
+      showToast('❌ Failed to save settings.', 'error');
+    }
+  }
+
+  function setValue(id, val) { document.getElementById(id).value = val; }
+
+  function showToast(msg, type = 'success') {
+    const old = document.getElementById('st');
+    if (old) old.remove();
+    const colors = { success:'#10b981', warn:'#f59e0b', error:'#ef4444' };
+    const t = document.createElement('div');
+    t.id = 'st';
+    t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;background:${colors[type]||colors.success};
+      color:white;padding:14px 20px;border-radius:10px;font-size:14px;font-weight:600;
+      font-family:Inter,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,0.4);`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  loadSettings();
+</script>
+</body>
+</html>

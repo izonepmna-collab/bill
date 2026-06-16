@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>I Zone – Bill History</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Print overlay */
+    #print-overlay {
+      display: none;
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      z-index: 500; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    #print-overlay.open { display: flex; }
+    #print-frame {
+      background: white; border-radius: 10px;
+      padding: 20mm 22mm; width: 210mm; max-height: 90vh;
+      overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .close-print-btn {
+      position: fixed; top: 20px; right: 20px; z-index: 600;
+      background: var(--red); color: white; border: none;
+      padding: 10px 18px; border-radius: 8px; font-size: 14px;
+      font-weight: 700; cursor: pointer; font-family: inherit;
+    }
+
+    /* Bill history list */
+    .bill-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 20px; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 16px;
+      transition: border-color 0.2s; cursor: default;
+    }
+    .bill-card:hover { border-color: var(--primary); }
+    .bill-inv { font-size: 17px; font-weight: 800; color: var(--primary); min-width: 110px; }
+    .bill-info { flex: 1; }
+    .bill-date-str { font-size: 13px; color: var(--text-muted); }
+    .bill-items-count { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .bill-total-badge {
+      font-size: 18px; font-weight: 800; color: var(--text);
+      background: var(--surface2); border-radius: 8px;
+      padding: 6px 14px; border: 1px solid var(--border);
+    }
+    .bills-actions { display: flex; gap: 8px; }
+
+    /* Search/filter row */
+    .filter-row { display: flex; gap: 12px; margin-bottom: 20px; }
+    .filter-row input { flex: 1; }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 60px 0; color: var(--text-muted); }
+    .empty-state .e-icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state .e-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+
+    /* Stats row */
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; }
+    .stat-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 6px; }
+    .stat-value { font-size: 24px; font-weight: 800; }
+
+    @media print {
+      body * { visibility: hidden; }
+      #print-frame, #print-frame * { visibility: visible; }
+      #print-frame { position: fixed; inset: 0; width: 100%; height: auto; box-shadow: none; border-radius: 0; padding: 10mm 15mm; }
+      .close-print-btn { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="products-layout">
+
+  <!-- Sidebar -->
+  <aside class="products-sidebar">
+    <div class="sidebar-header">
+      <div class="logo"><span class="logo-icon">🖨</span><span>I Zone</span></div>
+      <div class="nav-links">
+        <a href="index.html"    class="nav-link">🧾 Billing</a>
+        <a href="bills.html"    class="nav-link active">📂 Bills</a>
+        <a href="products.html" class="nav-link">📦 Products</a>
+        <a href="settings.html" class="nav-link">⚙️ Settings</a>
+      </div>
+    </div>
+  </aside>
+
+  <main class="products-main">
+    <div class="page-title">📂 Bill History</div>
+    <div class="page-sub">All saved bills. Click a bill to view or reprint it.</div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card"><div class="stat-label">Total Bills</div><div class="stat-value" id="s-total">—</div></div>
+      <div class="stat-card"><div class="stat-label">Today's Revenue</div><div class="stat-value" id="s-today">—</div></div>
+      <div class="stat-card"><div class="stat-label">All Time Revenue</div><div class="stat-value" id="s-all">—</div></div>
+    </div>
+
+    <!-- Filter -->
+    <div class="filter-row">
+      <input type="text" id="bill-search" placeholder="Search by invoice number…" oninput="filterBills()">
+    </div>
+
+    <div id="bills-list">
+      <div class="loading-msg" style="color:var(--text-muted);padding:20px 0;">Loading bills…</div>
+    </div>
+  </main>
+</div>
+
+<!-- Print Preview Overlay -->
+<div id="print-overlay">
+  <button class="close-print-btn" onclick="closePrintOverlay()">✕ Close</button>
+  <div id="print-frame"></div>
+</div>
+
+<script>
+  let allBills     = [];
+  let shopSettings = {};
+
+  async function init() {
+    await fetchShopSettings();
+    await fetchBills();
+  }
+
+  async function fetchShopSettings() {
+    try {
+      const res = await fetch('/api/settings');
+      shopSettings = await res.json();
+    } catch { shopSettings = { shop_name:'I ZONE', tagline:'', address:'', phone:'', bill_prefix:'INV' }; }
+  }
+
+  async function fetchBills() {
+    try {
+      const res = await fetch('/api/bills');
+      if (!res.ok) throw new Error();
+      allBills = await res.json();
+    } catch {
+      allBills = [];
+    }
+    renderStats();
+    renderBills();
+  }
+
+  function renderStats() {
+    const todayStr = new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+    const todayTotal = allBills.filter(b => b.date === todayStr).reduce((s,b)=>s+b.total,0);
+    const allTotal   = allBills.reduce((s,b)=>s+b.total,0);
+
+    document.getElementById('s-total').textContent = allBills.length;
+    document.getElementById('s-today').textContent = '₹' + todayTotal.toFixed(2);
+    document.getElementById('s-all').textContent   = '₹' + allTotal.toFixed(2);
+  }
+
+  function renderBills(filter = '') {
+    const container = document.getElementById('bills-list');
+    const q = filter.trim().toLowerCase();
+    const list = q ? allBills.filter(b => b.invoice_no.toLowerCase().includes(q)) : allBills;
+
+    if (!list.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="e-icon">📂</div>
+          <div class="e-title">${q ? 'No matching bills' : 'No bills saved yet'}</div>
+          <div>${q ? 'Try a different search term.' : 'Go to Billing and save your first bill.'}</div>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = '';
+    list.forEach(bill => {
+      const card = document.createElement('div');
+      card.className = 'bill-card';
+      const itemCount = (bill.items||[]).length;
+      card.innerHTML = `
+        <div class="bill-inv">${bill.invoice_no}</div>
+        <div class="bill-info">
+          <div style="font-weight:600;">${bill.date}</div>
+          <div class="bill-items-count">${itemCount} item${itemCount!==1?'s':''} &nbsp;·&nbsp; ${bill.created_at}</div>
+        </div>
+        <div class="bill-total-badge">₹${Number(bill.total).toFixed(2)}</div>
+        <div class="bills-actions">
+          <button class="btn btn-outline btn-sm" onclick="viewBill(${bill.id})">👁 View</button>
+          <button class="btn btn-danger btn-sm"  onclick="deleteBill(${bill.id},'${bill.invoice_no.replace(/'/g,"\\'")}')">🗑️</button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  function filterBills() {
+    renderBills(document.getElementById('bill-search').value);
+  }
+
+  function viewBill(id) {
+    const bill = allBills.find(b => b.id === id);
+    if (!bill) return;
+    const s = shopSettings;
+
+    const logoHtml = s.logo_base64
+      ? `<div style="margin-bottom:10px;"><img src="${s.logo_base64}" style="max-height:60px;max-width:150px;object-fit:contain;"></div>`
+      : '';
+
+    const addrParts = [s.address, s.city].filter(Boolean).join(', ');
+    const contactParts = [s.phone, s.email].filter(Boolean).join('  |  ');
+    const gstinLine = s.gstin ? `<div style="font-size:12px;color:#64748b;margin-top:2px;">GSTIN: ${s.gstin}</div>` : '';
+
+    const rows = (bill.items||[]).map((item,i) => `
+      <tr>
+        <td style="color:#94a3b8;font-size:12px;padding:10px 8px;">${i+1}</td>
+        <td style="font-weight:600;padding:10px 8px;">${item.name}</td>
+        <td style="text-align:right;padding:10px 8px;">${item.qty}</td>
+        <td style="text-align:right;padding:10px 8px;">${Number(item.rate).toFixed(2)}</td>
+        <td style="text-align:right;font-weight:700;padding:10px 8px;">${Number(item.total).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    document.getElementById('print-frame').innerHTML = `
+      <div style="text-align:center; border-bottom:2px solid #0f172a; padding-bottom:16px; margin-bottom:16px;">
+        ${logoHtml}
+        <div style="font-size:36px;font-weight:900;letter-spacing:4px;">${s.shop_name||'I ZONE'}</div>
+        ${s.tagline ? `<div style="font-size:13px;color:#64748b;margin-top:4px;">${s.tagline}</div>` : ''}
+        ${addrParts ? `<div style="font-size:13px;color:#475569;margin-top:3px;">${addrParts}</div>` : ''}
+        ${contactParts ? `<div style="font-size:13px;color:#475569;margin-top:2px;">${contactParts}</div>` : ''}
+        ${gstinLine}
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:20px;color:#475569;">
+        <div><strong style="color:#0f172a;">Invoice No:</strong> ${bill.invoice_no}</div>
+        <div><strong style="color:#0f172a;">Date:</strong> ${bill.date}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:0;">
+        <thead>
+          <tr style="border-bottom:2px solid #cbd5e1;">
+            <th style="padding:10px 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;text-align:left;">#</th>
+            <th style="padding:10px 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;text-align:left;">Item</th>
+            <th style="padding:10px 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;text-align:right;">Qty</th>
+            <th style="padding:10px 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;text-align:right;">Rate (₹)</th>
+            <th style="padding:10px 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;text-align:right;">Total (₹)</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid #0f172a;padding-top:16px;margin-top:16px;">
+        <span style="font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#475569;">Grand Total</span>
+        <span style="font-size:30px;font-weight:900;">₹${Number(bill.total).toFixed(2)}</span>
+      </div>
+      <div style="text-align:center;margin-top:50px;font-size:13px;color:#94a3b8;">Thank you for visiting ${s.shop_name||'I Zone'}!</div>
+    `;
+
+    document.getElementById('print-overlay').classList.add('open');
+  }
+
+  function closePrintOverlay() {
+    document.getElementById('print-overlay').classList.remove('open');
+  }
+
+  document.getElementById('print-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closePrintOverlay();
+  });
+
+  async function deleteBill(id, invNo) {
+    if (!confirm(`Delete bill "${invNo}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/bills/${id}`, { method:'DELETE' });
+      if (!res.ok) throw new Error();
+      showToast(`🗑️ Bill ${invNo} deleted.`);
+      allBills = allBills.filter(b => b.id !== id);
+      renderStats();
+      renderBills(document.getElementById('bill-search').value);
+    } catch { showToast('❌ Delete failed.', 'error'); }
+  }
+
+  function showToast(msg, type='success') {
+    const old = document.getElementById('bt'); if(old) old.remove();
+    const colors={success:'#10b981',warn:'#f59e0b',error:'#ef4444'};
+    const t=document.createElement('div'); t.id='bt';
+    t.style.cssText=`position:fixed;bottom:24px;right:24px;z-index:9999;background:${colors[type]||colors.success};color:white;padding:14px 20px;border-radius:10px;font-size:14px;font-weight:600;font-family:Inter,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,0.4);`;
+    t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000);
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>I Zone – Billing</title>
+  <meta name="description" content="Fast billing POS for I Zone printing shop">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Variant Picker Modal -->
+  <div id="variant-overlay" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">Select Option</h3>
+        <button onclick="closeVariantModal()" class="modal-close">✕</button>
+      </div>
+      <div id="variant-options" class="variant-grid"></div>
+      <div class="form-group" style="margin-top:16px;">
+        <label>Quantity</label>
+        <input type="number" id="modal-qty" min="1" value="1">
+      </div>
+      <button onclick="addVariantToCart()" class="btn" style="width:100%; margin-top:12px;">➕ Add to Bill</button>
+    </div>
+  </div>
+
+  <div class="app-container">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar no-print">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">🖨</span>
+          <span>I Zone</span>
+        </div>
+        <div class="nav-links">
+          <a href="index.html"   class="nav-link active">🧾 Billing</a>
+          <a href="bills.html"   class="nav-link">📂 Bills</a>
+          <a href="products.html" class="nav-link">📦 Products</a>
+          <a href="settings.html" class="nav-link">⚙️ Settings</a>
+        </div>
+      </div>
+
+      <div class="sidebar-body">
+        <div class="section-label">ITEMS</div>
+        <div class="search-wrap">
+          <input type="text" id="search-input" placeholder="Search items…" oninput="filterItems()">
+        </div>
+        <div id="item-selector" class="item-list">
+          <div class="loading-msg">Loading items…</div>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="form-group">
+          <label>Quantity</label>
+          <input type="number" id="qty" min="1" value="1" placeholder="Enter qty">
+        </div>
+        <button id="add-btn" class="btn">➕ Add to Bill</button>
+        <hr class="divider">
+        <button id="save-btn"  class="btn btn-green">💾 Save Bill</button>
+        <button onclick="window.print()" class="btn" style="background:#7c3aed; box-shadow:0 4px 12px rgba(124,58,237,0.3);">🖨️ Print Bill</button>
+        <button id="clear-btn" class="btn btn-red-outline">🗑️ New Bill</button>
+      </div>
+    </aside>
+
+    <!-- ── Bill Panel ── -->
+    <main class="bill-panel">
+      <div class="bill-paper" id="bill-paper">
+
+        <!-- Shop Header (populated by JS from settings) -->
+        <div class="shop-header">
+          <div id="bill-logo-wrap" style="display:none; margin-bottom:12px;">
+            <img id="bill-logo" src="" alt="Logo" style="max-height:70px; max-width:180px; object-fit:contain;">
+          </div>
+          <div class="shop-name" id="bill-shop-name">I ZONE</div>
+          <div class="shop-sub"  id="bill-tagline">High Quality Printing &amp; Browsing Services</div>
+          <div class="shop-address" id="bill-address"></div>
+          <div class="shop-contact" id="bill-contact"></div>
+          <div class="shop-gstin"   id="bill-gstin" style="display:none;"></div>
+        </div>
+
+        <div class="bill-meta">
+          <div><span class="meta-label">Invoice No:</span> <span id="bill-no">—</span></div>
+          <div><span class="meta-label">Date:</span> <span id="bill-date">—</span></div>
+        </div>
+
+        <table class="bill-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Item</th>
+              <th class="num">Qty</th>
+              <th class="num">Rate (₹)</th>
+              <th class="num">Total (₹)</th>
+              <th class="no-print"></th>
+            </tr>
+          </thead>
+          <tbody id="bill-body">
+            <tr id="empty-row">
+              <td colspan="6" style="text-align:center; color:#94a3b8; padding:40px 0; font-size:14px;">
+                No items added yet. Select from the left panel.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="bill-total-row">
+          <div class="bill-total-label">Grand Total</div>
+          <div class="bill-total-amount">₹<span id="grand-total">0.00</span></div>
+        </div>
+
+        <div class="bill-footer" id="bill-footer">Thank you for visiting!</div>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
