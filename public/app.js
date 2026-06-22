@@ -221,14 +221,38 @@ function addVariantToCart() {
 document.getElementById('add-btn').addEventListener('click', () => {
   if (!selectedItem) { alert('Please select an item.'); return; }
   const qty  = parseInt(document.getElementById('qty').value) || 1;
-  const rate = calculateRate(selectedItem, qty);
-  cart.push({ name: selectedItem.name, qty, rate, total: rate * qty });
+  
+  let rate = 0;
+  let total = 0;
+
+  if (selectedItem.type === 'fixed') {
+    rate = Number(selectedItem.rate);
+    total = rate * qty;
+  } else if (selectedItem.type === 'slab') {
+    rate = calculateRate(selectedItem, qty);
+    total = rate * qty;
+
+    // Minimum charge protection: prevent "cliff" where buying more is cheaper
+    let prevMaxCost = 0;
+    for (const s of selectedItem.prices) {
+      if (s.max < qty) {
+        const costAtMax = s.max * Number(s.rate);
+        if (costAtMax > prevMaxCost) prevMaxCost = costAtMax;
+      }
+    }
+    
+    // If the calculated total drops below the highest cost of any previous slab, bump it up
+    if (total < prevMaxCost) {
+      total = prevMaxCost;
+    }
+  }
+
+  cart.push({ name: selectedItem.name, qty, rate, total });
   document.getElementById('qty').value = 1;
   renderBill();
 });
 
 function calculateRate(item, qty) {
-  if (item.type === 'fixed') return Number(item.rate);
   if (item.type === 'slab') {
     for (const s of item.prices) {
       if (qty >= s.min && qty <= s.max) return Number(s.rate);
