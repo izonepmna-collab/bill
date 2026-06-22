@@ -57,6 +57,36 @@ db.serialize(() => {
     created_at  TEXT DEFAULT (datetime('now','localtime'))
   )`);
 
+  // ── Users table ────────────────────────────────────────────
+  db.run(`CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    username      TEXT UNIQUE,
+    password_hash TEXT,
+    role          TEXT,
+    created_at    TEXT DEFAULT (datetime('now','localtime'))
+  )`);
+
+  // ── Login History table ────────────────────────────────────
+  db.run(`CREATE TABLE IF NOT EXISTS login_history (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER,
+    username   TEXT,
+    role       TEXT,
+    login_time TEXT DEFAULT (datetime('now','localtime')),
+    ip_address TEXT
+  )`);
+
+  // ── Transactions (Income/Expense) table ────────────────────
+  db.run(`CREATE TABLE IF NOT EXISTS transactions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    date       TEXT,
+    type       TEXT, -- 'Income' or 'Expense'
+    mode       TEXT, -- 'Cash' or 'Online'
+    amount     REAL,
+    remarks    TEXT,
+    created_at TEXT DEFAULT (datetime('now','localtime'))
+  )`);
+
   // Seed items if empty
   db.get('SELECT COUNT(*) as count FROM items', (err, row) => {
     if (err || row.count > 0) return;
@@ -80,6 +110,21 @@ db.serialize(() => {
     Object.entries(defaultSettings).forEach(([k, v]) => stmt.run(k, String(v)));
     stmt.finalize();
     console.log('Settings seeded.');
+  });
+
+  // Seed default MD user if empty
+  db.get('SELECT COUNT(*) as count FROM users', (err, row) => {
+    if (err || row.count > 0) return;
+    const bcrypt = require('bcryptjs');
+    const hash = bcrypt.hashSync('Muhsin@123', 8);
+    db.run(
+      'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
+      ['muhsin', hash, 'MD'],
+      (err) => {
+        if (err) console.error(err);
+        else console.log('MD user seeded.');
+      }
+    );
   });
 
 });

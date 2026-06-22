@@ -8,12 +8,39 @@ let selectedVariant   = null;
 let pendingVariantItem = null;
 
 /* ══════════════════════════════════
-   BOOT
+   BOOT & AUTH
 ══════════════════════════════════ */
+const token = localStorage.getItem('token');
+const role  = localStorage.getItem('role');
+
 async function init() {
+  if (!token) {
+    window.location.href = 'login.html';
+    return;
+  }
+  
+  applyRoleUI();
+
   await Promise.all([fetchSettings(), fetchItems()]);
   await loadNextInvoice();
   setDate();
+}
+
+function applyRoleUI() {
+  if (role === 'Staff') {
+    // Hide restricted links
+    const links = document.querySelectorAll('.nav-link');
+    links.forEach(l => {
+      if (l.textContent.includes('Products') || l.textContent.includes('Settings') || l.textContent.includes('Bills') || l.textContent.includes('Users')) {
+        l.style.display = 'none';
+      }
+    });
+  }
+}
+
+function logout() {
+  localStorage.clear();
+  window.location.href = 'login.html';
 }
 
 function setDate() {
@@ -64,7 +91,7 @@ function applyShopHeader() {
 ══════════════════════════════════ */
 async function loadNextInvoice() {
   try {
-    const res = await fetch('/api/bills/next-invoice');
+    const res = await fetch('/api/bills/next-invoice', { headers: { 'Authorization': 'Bearer ' + token } });
     const data = await res.json();
     currentInvoice = data.invoice;
   } catch {
@@ -79,8 +106,11 @@ async function loadNextInvoice() {
 ══════════════════════════════════ */
 async function fetchItems() {
   try {
-    const res = await fetch('/api/items');
-    if (!res.ok) throw new Error();
+    const res = await fetch('/api/items', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) return logout();
+      throw new Error();
+    }
     itemsData = await res.json();
   } catch {
     itemsData = FALLBACK;
@@ -275,7 +305,7 @@ document.getElementById('save-btn').addEventListener('click', async () => {
   try {
     const res = await fetch('/api/bills', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body:    JSON.stringify({ invoice_no: invNo, date, items: cart, total })
     });
     if (!res.ok) throw new Error((await res.json()).error);

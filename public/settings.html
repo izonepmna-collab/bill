@@ -36,7 +36,11 @@
         <a href="bills.html"    class="nav-link">📂 Bills</a>
         <a href="products.html" class="nav-link">📦 Products</a>
         <a href="settings.html" class="nav-link active">⚙️ Settings</a>
+        <a href="users.html"    class="nav-link">👥 Users</a>
       </div>
+    </div>
+    <div onclick="logout()" style="padding: 12px 20px; color: #ef4444; font-weight: 600; cursor: pointer; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; margin-top: auto;">
+      🚪 Logout
     </div>
   </aside>
 
@@ -127,6 +131,20 @@
 </div>
 
 <script>
+  // Auth Check
+  const token = localStorage.getItem('token');
+  const role  = localStorage.getItem('role');
+  if (!token) window.location.href = 'login.html';
+  if (role !== 'MD') {
+    alert('Access Denied. Only MD can manage settings.');
+    window.location.href = 'index.html';
+  }
+
+  function logout() {
+    localStorage.clear();
+    window.location.href = 'login.html';
+  }
+
   let logoBase64 = '';
 
   async function loadSettings() {
@@ -205,7 +223,7 @@
     try {
       const res = await fetch('/api/settings', {
         method:  'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body:    JSON.stringify(payload)
       });
       if (!res.ok) throw new Error();

@@ -81,7 +81,11 @@
         <a href="bills.html"    class="nav-link active">📂 Bills</a>
         <a href="products.html" class="nav-link">📦 Products</a>
         <a href="settings.html" class="nav-link">⚙️ Settings</a>
+        <a href="users.html"    class="nav-link">👥 Users</a>
       </div>
+    </div>
+    <div onclick="logout()" style="padding: 12px 20px; color: #ef4444; font-weight: 600; cursor: pointer; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; margin-top: auto;">
+      🚪 Logout
     </div>
   </aside>
 
@@ -114,6 +118,20 @@
 </div>
 
 <script>
+  // Auth Check
+  const token = localStorage.getItem('token');
+  const role  = localStorage.getItem('role');
+  if (!token) window.location.href = 'login.html';
+  if (role !== 'MD') {
+    alert('Access Denied. Only MD can view all bills.');
+    window.location.href = 'index.html';
+  }
+
+  function logout() {
+    localStorage.clear();
+    window.location.href = 'login.html';
+  }
+
   let allBills     = [];
   let shopSettings = {};
 
@@ -131,7 +149,7 @@
 
   async function fetchBills() {
     try {
-      const res = await fetch('/api/bills');
+      const res = await fetch('/api/bills', { headers: { 'Authorization': 'Bearer ' + token } });
       if (!res.ok) throw new Error();
       allBills = await res.json();
     } catch {
@@ -260,7 +278,7 @@
   async function deleteBill(id, invNo) {
     if (!confirm(`Delete bill "${invNo}"? This cannot be undone.`)) return;
     try {
-      const res = await fetch(`/api/bills/${id}`, { method:'DELETE' });
+      const res = await fetch(`/api/bills/${id}`, { method:'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
       if (!res.ok) throw new Error();
       showToast(`🗑️ Bill ${invNo} deleted.`);
       allBills = allBills.filter(b => b.id !== id);

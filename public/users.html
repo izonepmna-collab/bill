@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>I Zone – User Management</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .split-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .card-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    
+    /* Table styles */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { text-align: left; padding: 10px; font-size: 12px; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+    .data-table td { padding: 12px 10px; font-size: 14px; border-bottom: 1px solid var(--border); }
+    .data-table tr:last-child td { border-bottom: none; }
+    
+    .role-badge { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    .role-md { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+    .role-staff { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    
+    .delete-btn { background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; border-radius: 4px; transition: 0.2s; }
+    .delete-btn:hover { background: rgba(239, 68, 68, 0.1); }
+    
+    /* Logout button sidebar */
+    .logout-btn { display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 12px 20px; color: #ef4444; font-weight: 600; cursor: pointer; border-top: 1px solid var(--border); transition: 0.2s; }
+    .logout-btn:hover { background: rgba(239, 68, 68, 0.05); }
+  </style>
+</head>
+<body>
+<div class="products-layout">
+
+  <!-- Sidebar -->
+  <aside class="products-sidebar" style="display:flex; flex-direction:column;">
+    <div class="sidebar-header">
+      <div class="logo"><span class="logo-icon">🖨</span><span>I Zone</span></div>
+      <div class="nav-links">
+        <a href="index.html"    class="nav-link">🧾 Billing</a>
+        <a href="bills.html"    class="nav-link">📂 Bills</a>
+        <a href="products.html" class="nav-link">📦 Products</a>
+        <a href="settings.html" class="nav-link">⚙️ Settings</a>
+        <a href="users.html"    class="nav-link active">👥 Users</a>
+      </div>
+    </div>
+    <div class="logout-btn" onclick="logout()">🚪 Logout</div>
+  </aside>
+
+  <main class="products-main">
+    <div class="page-title">👥 User Management</div>
+    <div class="page-sub">Add staff accounts and track login activity.</div>
+
+    <div class="split-layout">
+      
+      <!-- Users List & Add User -->
+      <div class="card">
+        <div class="card-title">Manage Accounts</div>
+        
+        <div style="display:flex; gap:10px; margin-bottom: 20px;">
+          <input type="text" id="new-user" placeholder="Username" class="form-group-dark input" style="flex:1; margin:0; padding:10px;">
+          <input type="password" id="new-pass" placeholder="Password" class="form-group-dark input" style="flex:1; margin:0; padding:10px;">
+          <select id="new-role" class="form-group-dark input" style="margin:0; padding:10px;">
+            <option value="Staff">Staff</option>
+            <option value="MD">MD</option>
+          </select>
+          <button class="btn" onclick="addUser()" style="padding:10px 16px;">Add</button>
+        </div>
+
+        <table class="data-table">
+          <thead>
+            <tr><th>Username</th><th>Role</th><th>Created</th><th></th></tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr><td colspan="4" style="text-align:center;color:#64748b;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Login History -->
+      <div class="card">
+        <div class="card-title">Login History <span style="font-size:12px; font-weight:400; color:var(--text-muted);">Last 100 logins</span></div>
+        <div style="max-height: 500px; overflow-y: auto; padding-right: 8px;">
+          <table class="data-table">
+            <thead>
+              <tr><th>User</th><th>Time</th><th>IP</th></tr>
+            </thead>
+            <tbody id="history-tbody">
+              <tr><td colspan="3" style="text-align:center;color:#64748b;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  // Auth Check
+  const token = localStorage.getItem('token');
+  const role  = localStorage.getItem('role');
+  if (!token) window.location.href = 'login.html';
+  if (role !== 'MD') {
+    alert('Access Denied. Only MD can manage users.');
+    window.location.href = 'index.html';
+  }
+
+  function logout() {
+    localStorage.clear();
+    window.location.href = 'login.html';
+  }
+
+  async function fetchUsers() {
+    try {
+      const res = await fetch('/api/users', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) return logout();
+        throw new Error();
+      }
+      const users = await res.json();
+      const tbody = document.getElementById('users-tbody');
+      tbody.innerHTML = '';
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        const badgeClass = u.role === 'MD' ? 'role-md' : 'role-staff';
+        tr.innerHTML = `
+          <td style="font-weight:600;">${u.username}</td>
+          <td><span class="role-badge ${badgeClass}">${u.role}</span></td>
+          <td style="color:var(--text-muted);font-size:12px;">${u.created_at}</td>
+          <td style="text-align:right;">
+            ${u.username !== localStorage.getItem('username') ? `<button class="delete-btn" onclick="deleteUser(${u.id}, '${u.username}')">🗑️</button>` : ''}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch {
+      showToast('Failed to load users', 'error');
+    }
+  }
+
+  async function fetchHistory() {
+    try {
+      const res = await fetch('/api/login-history', { headers: { 'Authorization': 'Bearer ' + token } });
+      const history = await res.json();
+      const tbody = document.getElementById('history-tbody');
+      tbody.innerHTML = '';
+      if (!history.length) return tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#64748b;">No logins recorded yet</td></tr>';
+      
+      history.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong style="color:var(--text);">${h.username}</strong> <span style="color:var(--text-muted);font-size:11px;">(${h.role})</span></td>
+          <td style="color:var(--text-muted);font-size:12px;">${h.login_time}</td>
+          <td style="color:var(--text-muted);font-size:12px;">${h.ip_address}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch {
+      console.log('Could not load history');
+    }
+  }
+
+  async function addUser() {
+    const username = document.getElementById('new-user').value.trim();
+    const password = document.getElementById('new-pass').value;
+    const role     = document.getElementById('new-role').value;
+
+    if (!username || !password) return alert('Enter username and password');
+
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ username, password, role })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add user');
+      
+      showToast('✅ User added successfully!');
+      document.getElementById('new-user').value = '';
+      document.getElementById('new-pass').value = '';
+      fetchUsers();
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  async function deleteUser(id, name) {
+    if (!confirm(`Are you sure you want to delete ${name}?`)) return;
+    try {
+      const res = await fetch(`/api/users/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) throw new Error();
+      showToast('🗑️ User deleted');
+      fetchUsers();
+    } catch {
+      showToast('❌ Failed to delete user', 'error');
+    }
+  }
+
+  function showToast(msg, type='success') {
+    const old = document.getElementById('tst'); if(old) old.remove();
+    const colors={success:'#10b981',warn:'#f59e0b',error:'#ef4444'};
+    const t=document.createElement('div'); t.id='tst';
+    t.style.cssText=`position:fixed;bottom:24px;right:24px;z-index:9999;background:${colors[type]||colors.success};color:white;padding:14px 20px;border-radius:10px;font-size:14px;font-weight:600;font-family:Inter,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,0.4);`;
+    t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000);
+  }
+
+  fetchUsers();
+  fetchHistory();
+</script>
+</body>
+</html>

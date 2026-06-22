@@ -1,3 +1,17 @@
+// Auth Check
+const token = localStorage.getItem('token');
+const role  = localStorage.getItem('role');
+if (!token) window.location.href = 'login.html';
+if (role !== 'MD') {
+  alert('Access Denied. Only MD can manage products.');
+  window.location.href = 'index.html';
+}
+
+function logout() {
+  localStorage.clear();
+  window.location.href = 'login.html';
+}
+
 let allProducts = [];
 let editingId = null;   // null = adding new, number = editing existing
 
@@ -6,7 +20,7 @@ let editingId = null;   // null = adding new, number = editing existing
 ══════════════════════════════════ */
 async function fetchProducts() {
   try {
-    const res = await fetch('/api/items');
+    const res = await fetch('/api/items', { headers: { 'Authorization': 'Bearer ' + token } });
     if (!res.ok) throw new Error();
     allProducts = await res.json();
   } catch {
@@ -171,13 +185,13 @@ async function saveProduct() {
     if (editingId) {
       res = await fetch(`/api/items/${editingId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify(payload)
       });
     } else {
       res = await fetch('/api/items', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify(payload)
       });
     }
@@ -244,7 +258,7 @@ function cancelEdit() {
 async function deleteProduct(id, name) {
   if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
   try {
-    const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/items/${id}`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
     if (!res.ok) throw new Error('Delete failed');
     showToast(`🗑️ "${name}" deleted.`);
     fetchProducts();
