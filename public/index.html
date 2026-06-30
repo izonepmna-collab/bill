@@ -41,6 +41,7 @@
           <a href="products.html" class="nav-link">📦 Products</a>
           <a href="settings.html" class="nav-link">⚙️ Settings</a>
           <a href="users.html"    class="nav-link">👥 Users</a>
+          <a href="reports.html"  class="nav-link">📊 Reports</a>
         </div>
       </div>
       
@@ -67,6 +68,7 @@
         <hr class="divider">
         <button id="save-btn"  class="btn btn-green">💾 Save Bill</button>
         <button onclick="window.print()" class="btn" style="background:#7c3aed; box-shadow:0 4px 12px rgba(124,58,237,0.3);">🖨️ Print Bill</button>
+        <button id="quote-btn" class="btn" style="background:#f59e0b; box-shadow:0 4px 12px rgba(245,158,11,0.3);">📄 Print Quotation</button>
         <button id="clear-btn" class="btn btn-red-outline">🗑️ New Bill</button>
       </div>
     </aside>
@@ -87,8 +89,9 @@
           <div class="shop-gstin"   id="bill-gstin" style="display:none;"></div>
         </div>
 
+        <div id="bill-title" style="text-align: center; font-size: 16px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 8px;">RETAIL INVOICE</div>
         <div class="bill-meta">
-          <div><span class="meta-label">Invoice No:</span> <span id="bill-no">—</span></div>
+          <div><span class="meta-label" id="bill-no-label">Invoice No:</span> <span id="bill-no">—</span></div>
           <div><span class="meta-label">Date:</span> <span id="bill-date">—</span></div>
         </div>
 

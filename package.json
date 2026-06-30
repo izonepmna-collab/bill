@@ -4,7 +4,6 @@
   "description": "Billing application",
   "main": "server.js",
   "scripts": {
-    "postinstall": "npm rebuild sqlite3 --build-from-source",
     "start": "node server.js"
   },
   "dependencies": {

@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>I Zone – Accounts & Reports</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .reports-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); }
+    .card-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    
+    /* Stats grid */
+    .stats-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; display: flex; flex-direction: column; }
+    .stat-box.highlight { border-color: var(--primary); background: rgba(99, 102, 241, 0.05); }
+    .stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px; }
+    .stat-number { font-size: 22px; font-weight: 800; color: var(--text); }
+    .stat-number.green { color: var(--green); }
+    .stat-number.red { color: #f43f5e; }
+    
+    /* Table styles */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { text-align: left; padding: 12px 10px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); border-bottom: 2px solid var(--border); letter-spacing: 0.5px; }
+    .data-table td { padding: 12px 10px; font-size: 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .data-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+    .data-table tr.selected td { background: rgba(99, 102, 241, 0.1); border-color: var(--primary); }
+    .data-table tr.clickable { cursor: pointer; }
+    
+    /* Transaction list styling */
+    .tx-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); margin-bottom: 8px; }
+    .tx-item:hover { border-color: var(--primary); }
+    .tx-info { display: flex; flex-direction: column; gap: 2px; }
+    .tx-remarks { font-weight: 600; font-size: 14px; }
+    .tx-subtext { font-size: 11px; color: var(--text-muted); }
+    .tx-amount { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .tx-amount.income { color: var(--green); }
+    .tx-amount.expense { color: #f43f5e; }
+    
+    .delete-btn { background: none; border: none; color: #ef4444; cursor: pointer; padding: 6px; border-radius: 6px; transition: 0.2s; font-size: 14px; }
+    .delete-btn:hover { background: rgba(239, 68, 68, 0.1); }
+    
+    /* Transaction Form styles */
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .form-group-dark { display: flex; flex-direction: column; gap: 6px; }
+    .form-group-dark label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+    .form-group-dark input, .form-group-dark select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--text); font-family: inherit; font-size: 14px; outline: none; transition: 0.2s; }
+    .form-group-dark input:focus, .form-group-dark select:focus { border-color: var(--primary); }
+    
+    .section-subtitle { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin: 16px 0 8px; letter-spacing: 0.5px; border-left: 3px solid var(--primary); padding-left: 8px; }
+    
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; background: var(--green); color: white; padding: 14px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.4); animation: fadeInUp 0.3s ease; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+<div class="products-layout">
+
+  <!-- Sidebar -->
+  <aside class="products-sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">🖨</span>
+        <span id="sidebar-shop-name">I Zone</span>
+      </div>
+      <div class="nav-links">
+        <a href="index.html"    class="nav-link">🧾 Billing</a>
+        <a href="bills.html"    class="nav-link">📂 Bills</a>
+        <a href="products.html" class="nav-link">📦 Products</a>
+        <a href="settings.html" class="nav-link">⚙️ Settings</a>
+        <a href="users.html"    class="nav-link">👥 Users</a>
+        <a href="reports.html"  class="nav-link active">📊 Reports</a>
+      </div>
+    </div>
+    <div onclick="logout()" style="padding: 12px 20px; color: #ef4444; font-weight: 600; cursor: pointer; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; margin-top: auto;">
+      🚪 Logout
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="products-main">
+    <div class="page-title">📊 Accounts &amp; Reports</div>
+    <div class="page-sub">Track manual shop income (Cash/Online) and daily expenses.</div>
+
+    <!-- Stats Summary Row -->
+    <div class="stats-summary">
+      <div class="stat-box">
+        <div class="stat-label">Total Cash Income</div>
+        <div class="stat-number green" id="stat-cash">₹0.00</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Total Online Income</div>
+        <div class="stat-number green" id="stat-online">₹0.00</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Total Expenses</div>
+        <div class="stat-number red" id="stat-expense">₹0.00</div>
+      </div>
+      <div class="stat-box highlight">
+        <div class="stat-label">Net Balance</div>
+        <div class="stat-number" id="stat-balance">₹0.00</div>
+      </div>
+    </div>
+
+    <div class="reports-grid">
+      <!-- Left side: Summary Report -->
+      <div class="card">
+        <div class="card-title">Daily Summary Report</div>
+        <div style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Income (Cash)</th>
+                <th>Income (Online)</th>
+                <th>Expense</th>
+                <th>Net Daily</th>
+              </tr>
+            </thead>
+            <tbody id="summary-tbody">
+              <tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Loading summary...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right side: Daily Details & Add Form -->
+      <div>
+        <!-- Add transaction form -->
+        <div class="card">
+          <div class="card-title">➕ Add Transaction</div>
+          <div class="form-row">
+            <div class="form-group-dark">
+              <label>Date</label>
+              <input type="date" id="tx-date">
+            </div>
+            <div class="form-group-dark">
+              <label>Type</label>
+              <select id="tx-type" onchange="toggleModeField()">
+                <option value="Income">Income</option>
+                <option value="Expense">Expense</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group-dark" id="mode-group">
+              <label>Payment Mode</label>
+              <select id="tx-mode">
+                <option value="Cash">Cash</option>
+                <option value="Online">Online</option>
+              </select>
+            </div>
+            <div class="form-group-dark">
+              <label>Amount (₹)</label>
+              <input type="number" id="tx-amount" min="1" step="any" placeholder="0.00">
+            </div>
+          </div>
+
+          <div class="form-group-dark" style="margin-bottom: 16px;">
+            <label>Remarks</label>
+            <input type="text" id="tx-remarks" placeholder="e.g. Browsing income, Paper purchase, Tea expense">
+          </div>
+
+          <button class="btn btn-green" onclick="addTransaction()" style="width: 100%;">💾 Save Transaction</button>
+        </div>
+
+        <!-- Daily details view -->
+        <div class="card">
+          <div class="card-title" id="daily-title">Daily Details</div>
+          
+          <div>
+            <div class="section-subtitle">Income (Online)</div>
+            <div id="daily-income-online-list">
+              <div style="color:var(--text-muted); font-size:13px; padding: 4px;">No online income entries</div>
+            </div>
+
+            <div class="section-subtitle">Income (Cash)</div>
+            <div id="daily-income-cash-list">
+              <div style="color:var(--text-muted); font-size:13px; padding: 4px;">No cash income entries</div>
+            </div>
+
+            <div class="section-subtitle">Expenses</div>
+            <div id="daily-expense-list">
+              <div style="color:var(--text-muted); font-size:13px; padding: 4px;">No expense entries</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // Auth Check
+  const token = localStorage.getItem('token');
+  const role  = localStorage.getItem('role');
+  if (!token) window.location.href = 'login.html';
+  if (role !== 'MD') {
+    alert('Access Denied. Only MD can access accounts & reports.');
+    window.location.href = 'index.html';
+  }
+
+  function logout() {
+    localStorage.clear();
+    window.location.href = 'login.html';
+  }
+
+  // Set default date to today in local timezone
+  const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
+  document.getElementById('tx-date').value = todayStr;
+
+  let selectedDate = todayStr;
+
+  async function init() {
+    await fetchSettings();
+    await loadSummary();
+    await loadDaily(selectedDate);
+  }
+
+  async function fetchSettings() {
+    try {
+      const res = await fetch('/api/settings');
+      const settings = await res.json();
+      if (settings.shop_name) {
+        document.getElementById('sidebar-shop-name').textContent = settings.shop_name;
+      }
+    } catch (e) {
+      console.error('Failed to load shop settings', e);
+    }
+  }
+
+  function toggleModeField() {
+    const type = document.getElementById('tx-type').value;
+    const modeGroup = document.getElementById('mode-group');
+    if (type === 'Expense') {
+      modeGroup.style.opacity = '0.5';
+      document.getElementById('tx-mode').disabled = true;
+      document.getElementById('tx-mode').value = '';
+    } else {
+      modeGroup.style.opacity = '1';
+      document.getElementById('tx-mode').disabled = false;
+      document.getElementById('tx-mode').value = 'Cash';
+    }
+  }
+
+  async function loadSummary() {
+    try {
+      const res = await fetch('/api/transactions/summary', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) logout();
+        throw new Error('Failed to load summary');
+      }
+      const data = await res.json();
+      
+      const tbody = document.getElementById('summary-tbody');
+      tbody.innerHTML = '';
+      
+      let grandCash = 0;
+      let grandOnline = 0;
+      let grandExpense = 0;
+
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">No transaction logs found.</td></tr>';
+      } else {
+        data.forEach(row => {
+          const cash = Number(row.income_cash || 0);
+          const online = Number(row.income_online || 0);
+          const exp = Number(row.total_expense || 0);
+          const net = (cash + online) - exp;
+          
+          grandCash += cash;
+          grandOnline += online;
+          grandExpense += exp;
+
+          const tr = document.createElement('tr');
+          tr.className = 'clickable' + (row.date === selectedDate ? ' selected' : '');
+          tr.onclick = () => selectDate(row.date);
+          
+          // Format date for display
+          const displayDate = new Date(row.date).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+
+          tr.innerHTML = `
+            <td style="font-weight:700;">${displayDate}</td>
+            <td style="color:var(--green);">₹${cash.toFixed(2)}</td>
+            <td style="color:var(--green);">₹${online.toFixed(2)}</td>
+            <td style="color:#f43f5e;">₹${exp.toFixed(2)}</td>
+            <td style="font-weight:800; color:${net >= 0 ? 'var(--green)' : '#f43f5e'}">₹${net.toFixed(2)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Update stat cards
+      document.getElementById('stat-cash').textContent = `₹${grandCash.toFixed(2)}`;
+      document.getElementById('stat-online').textContent = `₹${grandOnline.toFixed(2)}`;
+      document.getElementById('stat-expense').textContent = `₹${grandExpense.toFixed(2)}`;
+      
+      const balance = (grandCash + grandOnline) - grandExpense;
+      const balanceEl = document.getElementById('stat-balance');
+      balanceEl.textContent = `₹${balance.toFixed(2)}`;
+      balanceEl.className = 'stat-number ' + (balance >= 0 ? 'green' : 'red');
+
+    } catch (e) {
+      showToast('Error loading summary', 'error');
+    }
+  }
+
+  function selectDate(date) {
+    selectedDate = date;
+    document.getElementById('tx-date').value = date;
+    
+    // Highlight selected row in summary table
+    const rows = document.querySelectorAll('#summary-tbody tr');
+    rows.forEach(r => r.classList.remove('selected'));
+    
+    // Find clicked row and select it
+    loadDaily(date);
+  }
+
+  async function loadDaily(date) {
+    try {
+      selectedDate = date;
+      const displayDate = new Date(date).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+      document.getElementById('daily-title').textContent = `Daily Details – ${displayDate}`;
+      
+      const res = await fetch(`/api/transactions?date=${date}`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const transactions = await res.json();
+      
+      const onlineList = document.getElementById('daily-income-online-list');
+      const cashList = document.getElementById('daily-income-cash-list');
+      const expList = document.getElementById('daily-expense-list');
+      
+      onlineList.innerHTML = '';
+      cashList.innerHTML = '';
+      expList.innerHTML = '';
+      
+      let onlineTotal = 0;
+      let cashTotal = 0;
+      let expTotal = 0;
+
+      transactions.forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'tx-item';
+        item.innerHTML = `
+          <div class="tx-info">
+            <span class="tx-remarks">${t.remarks || 'No remarks'}</span>
+            <span class="tx-subtext">ID: #${t.id}</span>
+          </div>
+          <div class="tx-amount ${t.type.toLowerCase()}">
+            ₹${Number(t.amount).toFixed(2)}
+            <button class="delete-btn" onclick="deleteTransaction(${t.id})" title="Delete Transaction">🗑️</button>
+          </div>
+        `;
+
+        if (t.type === 'Income' && t.mode === 'Online') {
+          onlineList.appendChild(item);
+          onlineTotal += Number(t.amount);
+        } else if (t.type === 'Income' && t.mode === 'Cash') {
+          cashList.appendChild(item);
+          cashTotal += Number(t.amount);
+        } else if (t.type === 'Expense') {
+          expList.appendChild(item);
+          expTotal += Number(t.amount);
+        }
+      });
+
+      if (!onlineList.children.length) {
+        onlineList.innerHTML = '<div style="color:var(--text-muted); font-size:13px; padding: 4px;">No online income entries</div>';
+      } else {
+        const sub = document.createElement('div');
+        sub.style.cssText = 'text-align:right; font-size:13px; font-weight:700; color:var(--green); margin-top:4px; padding-right:12px;';
+        sub.textContent = `Subtotal: ₹${onlineTotal.toFixed(2)}`;
+        onlineList.appendChild(sub);
+      }
+
+      if (!cashList.children.length) {
+        cashList.innerHTML = '<div style="color:var(--text-muted); font-size:13px; padding: 4px;">No cash income entries</div>';
+      } else {
+        const sub = document.createElement('div');
+        sub.style.cssText = 'text-align:right; font-size:13px; font-weight:700; color:var(--green); margin-top:4px; padding-right:12px;';
+        sub.textContent = `Subtotal: ₹${cashTotal.toFixed(2)}`;
+        cashList.appendChild(sub);
+      }
+
+      if (!expList.children.length) {
+        expList.innerHTML = '<div style="color:var(--text-muted); font-size:13px; padding: 4px;">No expense entries</div>';
+      } else {
+        const sub = document.createElement('div');
+        sub.style.cssText = 'text-align:right; font-size:13px; font-weight:700; color:#f43f5e; margin-top:4px; padding-right:12px;';
+        sub.textContent = `Subtotal: ₹${expTotal.toFixed(2)}`;
+        expList.appendChild(sub);
+      }
+
+      // Sync summary row active highlight
+      const tableRows = document.querySelectorAll('#summary-tbody tr');
+      tableRows.forEach(tr => {
+        // Simple comparison of first td text or click handler date
+        // Best is to reload summary highlighting
+      });
+
+    } catch (e) {
+      showToast('Error loading daily details', 'error');
+    }
+  }
+
+  async function addTransaction() {
+    const date = document.getElementById('tx-date').value;
+    const type = document.getElementById('tx-type').value;
+    const mode = type === 'Income' ? document.getElementById('tx-mode').value : '';
+    const amount = parseFloat(document.getElementById('tx-amount').value);
+    const remarks = document.getElementById('tx-remarks').value.trim();
+
+    if (!date) return alert('Please select a date.');
+    if (isNaN(amount) || amount <= 0) return alert('Please enter a valid amount.');
+
+    try {
+      const res = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ date, type, mode, amount, remarks })
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Server error');
+      }
+
+      showToast('✅ Transaction saved successfully!');
+      
+      // Clear fields
+      document.getElementById('tx-amount').value = '';
+      document.getElementById('tx-remarks').value = '';
+      
+      selectedDate = date;
+      
+      // Reload
+      await loadSummary();
+      await loadDaily(selectedDate);
+
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+  async function deleteTransaction(id) {
+    if (!confirm('Are you sure you want to delete this transaction?')) return;
+    
+    try {
+      const res = await fetch(`/api/transactions/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      
+      if (!res.ok) throw new Error();
+      
+      showToast('🗑️ Transaction deleted');
+      await loadSummary();
+      await loadDaily(selectedDate);
+    } catch (e) {
+      showToast('Failed to delete transaction', 'error');
+    }
+  }
+
+  function showToast(msg, type='success') {
+    const old = document.getElementById('tst'); if(old) old.remove();
+    const colors={success:'#10b981',warn:'#f59e0b',error:'#ef4444'};
+    const t=document.createElement('div'); t.id='tst'; t.className='toast';
+    t.style.background = colors[type] || colors.success;
+    t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000);
+  }
+
+  init();
+</script>
+</body>
+</html>

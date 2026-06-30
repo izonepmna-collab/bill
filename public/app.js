@@ -31,7 +31,7 @@ function applyRoleUI() {
     // Hide restricted links
     const links = document.querySelectorAll('.nav-link');
     links.forEach(l => {
-      if (l.textContent.includes('Products') || l.textContent.includes('Settings') || l.textContent.includes('Bills') || l.textContent.includes('Users')) {
+      if (l.textContent.includes('Products') || l.textContent.includes('Settings') || l.textContent.includes('Bills') || l.textContent.includes('Users') || l.textContent.includes('Reports')) {
         l.style.display = 'none';
       }
     });
@@ -320,6 +320,27 @@ document.getElementById('save-btn').addEventListener('click', async () => {
   } catch (err) {
     showToast('❌ Save failed: ' + err.message, 'error');
   }
+});
+
+/* ══════════════════════════════════
+   PRINT QUOTATION
+   ══════════════════════════════════ */
+document.getElementById('quote-btn').addEventListener('click', () => {
+  if (!cart.length) { alert('Add items to the quotation first.'); return; }
+  
+  const titleEl = document.getElementById('bill-title');
+  const labelEl = document.getElementById('bill-no-label');
+  
+  const originalTitle = titleEl.textContent;
+  const originalLabel = labelEl.textContent;
+  
+  titleEl.textContent = 'QUOTATION';
+  labelEl.textContent = 'Quotation Ref:';
+  
+  window.print();
+  
+  titleEl.textContent = originalTitle;
+  labelEl.textContent = originalLabel;
 });
 
 /* ══════════════════════════════════
