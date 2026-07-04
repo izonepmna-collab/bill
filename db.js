@@ -1,8 +1,8 @@
 const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const path    = require('path');
 
 const dbPath = path.join(__dirname, 'database.sqlite');
-const db = new sqlite3.Database(dbPath);
+const db     = new sqlite3.Database(dbPath);
 
 const initialData = [
   { name:'A4 Black Single', category:'Black Print', type:'slab', prices:[{min:1,max:20,rate:2},{min:21,max:50,rate:1.5},{min:51,max:99,rate:1.2},{min:100,max:100000,rate:1}] },
@@ -63,8 +63,11 @@ db.serialize(() => {
     username      TEXT UNIQUE,
     password_hash TEXT,
     role          TEXT,
+    email         TEXT,
     created_at    TEXT DEFAULT (datetime('now','localtime'))
   )`);
+  // Migration: add email column to existing databases
+  db.run(`ALTER TABLE users ADD COLUMN email TEXT`, () => {});
 
   // ── Login History table ────────────────────────────────────
   db.run(`CREATE TABLE IF NOT EXISTS login_history (
@@ -118,11 +121,11 @@ db.serialize(() => {
     const bcrypt = require('bcryptjs');
     const hash = bcrypt.hashSync('Muhsin@123', 8);
     db.run(
-      'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
-      ['muhsin', hash, 'MD'],
-      (err) => {
-        if (err) console.error(err);
-        else console.log('MD user seeded.');
+      'INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, ?, ?)',
+      ['muhsin', hash, 'MD', 'muhsin@izone.com'],
+      (err2) => {
+        if (err2) console.error(err2);
+        else console.log('MD user seeded. Username: muhsin | Email: muhsin@izone.com');
       }
     );
   });

@@ -1,16 +1,69 @@
 const express  = require('express');
 const cors     = require('cors');
 const path     = require('path');
+const crypto   = require('crypto');
 const jwt      = require('jsonwebtoken');
 const bcrypt   = require('bcryptjs');
+const nodemailer = require('nodemailer');
 const db       = require('./db');
 
-const JWT_SECRET = 'izone-super-secret-key-123'; // In production, use process.env.JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET || 'izone-super-secret-key-123';
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+/* ══════════════════════════════════════
+   EMAIL HELPER
+══════════════════════════════════════ */
+async function sendResetEmail(toEmail, username, tempPassword) {
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT || 587;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  const mailOptions = {
+    from: `"I Zone Billing System" <${user || 'no-reply@izone.com'}>`,
+    to: toEmail,
+    subject: 'Password Reset – I Zone Billing System',
+    text: `Hello ${username},\n\nYour temporary password is: ${tempPassword}\n\nPlease log in and change your password immediately from Settings.\n\nBest regards,\nI Zone System`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #ddd;border-radius:12px;">
+        <h2 style="color:#8b5cf6;">🔑 Password Reset</h2>
+        <p>Hello <strong>${username}</strong>,</p>
+        <p>Your temporary password for the <strong>I Zone Billing System</strong> is:</p>
+        <div style="background:#f1f5f9;padding:16px;font-size:22px;font-weight:bold;text-align:center;border-radius:8px;letter-spacing:3px;color:#1e293b;margin:20px 0;">
+          ${tempPassword}
+        </div>
+        <p>Please log in with this password and change it immediately from the <strong>Settings → Change Password</strong> section.</p>
+        <hr style="border:0;border-top:1px solid #eee;margin:20px 0;">
+        <p style="font-size:12px;color:#94a3b8;">This is an automated message. Please do not reply.</p>
+      </div>
+    `
+  };
+
+  if (host && user && pass) {
+    const transporter = nodemailer.createTransport({
+      host,
+      port: Number(port),
+      secure: Number(port) === 465,
+      auth: { user, pass }
+    });
+    await transporter.sendMail(mailOptions);
+    console.log(`✉️  Password reset email sent to ${toEmail}`);
+    return true;
+  } else {
+    console.log(`
+============================================================
+✉️  [MAIL SIMULATOR] Password Reset Email
+To:       ${toEmail}
+Username: ${username}
+Temp Pw:  ${tempPassword}
+============================================================`);
+    return false;
+  }
+}
 
 /* ══════════════════════════════════════
    AUTHENTICATION & MIDDLEWARE
@@ -59,6 +112,79 @@ app.post('/api/auth/login', (req, res) => {
 app.get('/api/auth/verify', authenticateToken, (req, res) => {
   res.json({ valid: true, user: req.user });
 });
+
+/* ══════════════════════════════════════
+   PASSWORD RESET (PUBLIC – no token needed)
+══════════════════════════════════════ */
+app.post('/api/auth/forgot-password', (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  db.get('SELECT * FROM users WHERE email = ?', [email], (err, user) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!user) return res.status(400).json({ error: 'No account found with this email address' });
+
+    // Generate 8-char temporary password
+    const tempPassword = crypto.randomBytes(4).toString('hex');
+    const hash = bcrypt.hashSync(tempPassword, 8);
+
+    db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, user.id], async function(err2) {
+      if (err2) return res.status(500).json({ error: err2.message });
+
+      console.log(`\n🔑 [PASSWORD RESET] User: "${user.username}" (${user.email}) → Temp password: ${tempPassword}\n`);
+
+      let mailSent = false;
+      try {
+        mailSent = await sendResetEmail(user.email, user.username, tempPassword);
+      } catch (mailErr) {
+        console.error('Mail error:', mailErr.message);
+      }
+
+      const response = {
+        success: true,
+        message: mailSent
+          ? 'A temporary password has been sent to your email.'
+          : 'Password reset. (No mail server configured – check server console)'
+      };
+
+      // If MD (admin) role, return temp password directly in response
+      if (user.role === 'MD') {
+        response.tempPassword = tempPassword;
+        response.username = user.username;
+      }
+
+      res.json(response);
+    });
+  });
+});
+
+/* ══════════════════════════════════════
+   CHANGE PASSWORD (authenticated)
+══════════════════════════════════════ */
+app.post('/api/auth/change-password', authenticateToken, (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Both current and new password are required' });
+  }
+  if (newPassword.length < 4) {
+    return res.status(400).json({ error: 'New password must be at least 4 characters' });
+  }
+
+  db.get('SELECT * FROM users WHERE id = ?', [req.user.id], (err, user) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!user || !bcrypt.compareSync(currentPassword, user.password_hash)) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    const newHash = bcrypt.hashSync(newPassword, 8);
+    db.run('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, user.id], function(err2) {
+      if (err2) return res.status(500).json({ error: err2.message });
+      console.log(`🔐 Password changed for user: ${user.username}`);
+      res.json({ success: true, message: 'Password changed successfully.' });
+    });
+  });
+});
+
 
 /* ══════════════════════════════════════
    USER MANAGEMENT (MD ONLY)
