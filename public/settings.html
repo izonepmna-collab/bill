@@ -124,7 +124,30 @@
       </div>
     </div>
 
-    <div style="display:flex; gap:12px;">
+    <!-- Change Password -->
+    <div class="settings-section" style="margin-top: 20px;">
+      <h3>🔐 Change Password</h3>
+      <div id="pwd-alert" style="display:none; padding:12px; border-radius:8px; margin-bottom:16px; font-size:14px; font-weight:500;"></div>
+      <div class="settings-grid">
+        <div class="form-group-dark">
+          <label>Current Password</label>
+          <input type="password" id="pwd-current" placeholder="Enter current password">
+        </div>
+        <div class="form-group-dark">
+          <label>New Password</label>
+          <input type="password" id="pwd-new" placeholder="Enter new password (min 4 chars)">
+        </div>
+        <div class="form-group-dark">
+          <label>Confirm New Password</label>
+          <input type="password" id="pwd-confirm" placeholder="Confirm new password">
+        </div>
+        <div class="form-group-dark" style="display:flex; align-items:flex-end;">
+          <button class="btn" onclick="changePassword()" style="height:46px; background:#10b981;">Update Password</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:12px; margin-top:20px;">
       <button class="btn" onclick="saveSettings()">💾 Save Settings</button>
       <button class="btn btn-outline" onclick="location.href='index.html'">← Back to Billing</button>
     </div>
@@ -252,6 +275,50 @@
   }
 
   loadSettings();
+
+  async function changePassword() {
+    const currentPassword = document.getElementById('pwd-current').value;
+    const newPassword     = document.getElementById('pwd-new').value;
+    const confirmPassword = document.getElementById('pwd-confirm').value;
+    const alertEl = document.getElementById('pwd-alert');
+
+    function setPwdAlert(msg, isSuccess = false) {
+      alertEl.textContent = msg;
+      alertEl.style.display = 'block';
+      alertEl.style.background  = isSuccess ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
+      alertEl.style.border      = isSuccess ? '1px solid #10b981'      : '1px solid #ef4444';
+      alertEl.style.color       = isSuccess ? '#a7f3d0'                : '#fca5a5';
+    }
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPwdAlert('All fields are required.'); return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwdAlert('New passwords do not match.'); return;
+    }
+    if (newPassword.length < 4) {
+      setPwdAlert('New password must be at least 4 characters.'); return;
+    }
+
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPwdAlert(data.error || 'Failed to change password.'); return;
+      }
+      setPwdAlert('✅ Password changed successfully! Please log in again.', true);
+      document.getElementById('pwd-current').value = '';
+      document.getElementById('pwd-new').value = '';
+      document.getElementById('pwd-confirm').value = '';
+      setTimeout(() => logout(), 2500);
+    } catch {
+      setPwdAlert('Network error. Is the server running?');
+    }
+  }
 </script>
 </body>
 </html>
