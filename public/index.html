@@ -26,7 +26,19 @@
     </div>
   </div>
 
+  <!-- Mobile Header -->
+  <div class="mobile-header no-print">
+    <div class="logo">
+      <span class="logo-icon">🖨</span>
+      <span>I Zone</span>
+    </div>
+    <button class="hamburger-btn" onclick="toggleSidebar()">☰</button>
+  </div>
+
   <div class="app-container">
+    
+    <!-- Sidebar Overlay for Mobile -->
+    <div id="sidebar-overlay" class="sidebar-overlay no-print" onclick="toggleSidebar()"></div>
 
     <!-- ── Sidebar ── -->
     <aside class="sidebar no-print">
@@ -126,5 +138,13 @@
   </div>
 
   <script src="app.js"></script>
+  <script>
+    function toggleSidebar() {
+      const sidebar = document.querySelector('.sidebar') || document.querySelector('.products-sidebar');
+      const overlay = document.getElementById('sidebar-overlay');
+      if (sidebar) sidebar.classList.toggle('open');
+      if (overlay) overlay.classList.toggle('open');
+    }
+  </script>
 </body>
 </html>

@@ -70,7 +70,19 @@
   </style>
 </head>
 <body>
+  <!-- Mobile Header -->
+  <div class="mobile-header no-print">
+    <div class="logo">
+      <span class="logo-icon">🖨</span>
+      <span>I Zone</span>
+    </div>
+    <button class="hamburger-btn" onclick="toggleSidebar()">☰</button>
+  </div>
+
 <div class="products-layout">
+  <!-- Sidebar Overlay for Mobile -->
+  <div id="sidebar-overlay" class="sidebar-overlay no-print" onclick="toggleSidebar()"></div>
+
 
   <!-- Sidebar -->
   <aside class="products-sidebar">
@@ -294,6 +306,13 @@
     const t=document.createElement('div'); t.id='bt';
     t.style.cssText=`position:fixed;bottom:24px;right:24px;z-index:9999;background:${colors[type]||colors.success};color:white;padding:14px 20px;border-radius:10px;font-size:14px;font-weight:600;font-family:Inter,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,0.4);`;
     t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000);
+  }
+
+  function toggleSidebar() {
+    const sidebar = document.querySelector('.products-sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar) sidebar.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('open');
   }
 
   init();

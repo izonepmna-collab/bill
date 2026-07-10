@@ -6,6 +6,7 @@
   <title>I Zone – Accounts & Reports</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .reports-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); }
@@ -56,7 +57,19 @@
   </style>
 </head>
 <body>
+  <!-- Mobile Header -->
+  <div class="mobile-header no-print">
+    <div class="logo">
+      <span class="logo-icon">🖨</span>
+      <span>I Zone</span>
+    </div>
+    <button class="hamburger-btn" onclick="toggleSidebar()">☰</button>
+  </div>
+
 <div class="products-layout">
+  <!-- Sidebar Overlay for Mobile -->
+  <div id="sidebar-overlay" class="sidebar-overlay no-print" onclick="toggleSidebar()"></div>
+
 
   <!-- Sidebar -->
   <aside class="products-sidebar">
@@ -83,6 +96,12 @@
   <main class="products-main">
     <div class="page-title">📊 Accounts &amp; Reports</div>
     <div class="page-sub">Track manual shop income (Cash/Online) and daily expenses.</div>
+
+    <!-- Chart Section -->
+    <div class="card" style="margin-bottom: 24px; position: relative; height: 300px; width: 100%;">
+      <div class="card-title" style="margin-bottom: 10px;">Daily Income vs Expenses</div>
+      <canvas id="incomeChart"></canvas>
+    </div>
 
     <!-- Stats Summary Row -->
     <div class="stats-summary">
@@ -188,6 +207,28 @@
             </div>
           </div>
         </div>
+
+        <!-- Holidays Manager -->
+        <div class="card">
+          <div class="card-title">🌴 Holidays Manager</div>
+          <div class="form-row">
+            <div class="form-group-dark">
+              <label>Date</label>
+              <input type="date" id="holiday-date">
+            </div>
+            <div class="form-group-dark">
+              <label>Description</label>
+              <input type="text" id="holiday-desc" placeholder="e.g. Shop Closed">
+            </div>
+          </div>
+          <button class="btn btn-outline" onclick="addHoliday()" style="width: 100%; margin-bottom:16px;">Set as Holiday</button>
+          
+          <div class="section-subtitle">Upcoming / Recent Holidays</div>
+          <div id="holidays-list">
+            <div style="color:var(--text-muted); font-size:13px; padding: 4px;">Loading holidays...</div>
+          </div>
+        </div>
+
       </div>
     </div>
   </main>
@@ -218,6 +259,7 @@
     await fetchSettings();
     await loadSummary();
     await loadDaily(selectedDate);
+    await loadHolidays();
   }
 
   async function fetchSettings() {
@@ -305,10 +347,73 @@
       balanceEl.textContent = `₹${balance.toFixed(2)}`;
       balanceEl.className = 'stat-number ' + (balance >= 0 ? 'green' : 'red');
 
+      renderChart(data);
+
     } catch (e) {
       showToast('Error loading summary', 'error');
     }
   }
+
+  let incomeChartInstance = null;
+  function renderChart(data) {
+    const ctx = document.getElementById('incomeChart');
+    if (!ctx) return;
+    
+    // Sort data chronologically for the chart
+    const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
+    
+    const labels = sortedData.map(d => {
+      return new Date(d.date).toLocaleDateString('en-IN', { day:'2-digit', month:'short' });
+    });
+    
+    const incomeData = sortedData.map(d => Number(d.income_cash || 0) + Number(d.income_online || 0));
+    const expenseData = sortedData.map(d => Number(d.total_expense || 0));
+    
+    if (incomeChartInstance) {
+      incomeChartInstance.destroy();
+    }
+    
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+
+    incomeChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Total Income',
+            data: incomeData,
+            backgroundColor: '#10b981',
+            borderRadius: 4
+          },
+          {
+            label: 'Total Expenses',
+            data: expenseData,
+            backgroundColor: '#f43f5e',
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', align: 'end' }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(255,255,255,0.05)' }
+          },
+          x: {
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  }
+
 
   function selectDate(date) {
     selectedDate = date;

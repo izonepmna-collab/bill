@@ -90,6 +90,13 @@ db.serialize(() => {
     created_at TEXT DEFAULT (datetime('now','localtime'))
   )`);
 
+  // ── Holidays table ──────────────────────────────────────────
+  db.run(`CREATE TABLE IF NOT EXISTS holidays (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    date        TEXT UNIQUE,
+    description TEXT
+  )`);
+
   // Seed items if empty
   db.get('SELECT COUNT(*) as count FROM items', (err, row) => {
     if (err || row.count > 0) return;

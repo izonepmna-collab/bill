@@ -300,10 +300,37 @@ app.put('/api/settings', authenticateToken, requireMD, (req, res) => {
 });
 
 /* ══════════════════════════════════════
+   HOLIDAYS
+══════════════════════════════════════ */
+
+app.get('/api/holidays', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM holidays ORDER BY date DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/holidays', authenticateToken, requireMD, (req, res) => {
+  const { date, description } = req.body;
+  if (!date) return res.status(400).json({ error: 'Date is required' });
+  db.run('INSERT OR REPLACE INTO holidays (date, description) VALUES (?, ?)', [date, description || 'Closed'], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, id: this.lastID });
+  });
+});
+
+app.delete('/api/holidays/:date', authenticateToken, requireMD, (req, res) => {
+  db.run('DELETE FROM holidays WHERE date = ?', [req.params.date], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+/* ══════════════════════════════════════
    TRANSACTIONS (INCOME/EXPENSE)
 ══════════════════════════════════════ */
 
-// Get summary report grouped by date
+// Get summary report grouped by date (excluding holidays)
 app.get('/api/transactions/summary', authenticateToken, requireMD, (req, res) => {
   const query = `
     SELECT 
@@ -312,8 +339,9 @@ app.get('/api/transactions/summary', authenticateToken, requireMD, (req, res) =>
       SUM(CASE WHEN type = 'Income' AND mode = 'Online' THEN amount ELSE 0 END) as income_online,
       SUM(CASE WHEN type = 'Expense' THEN amount ELSE 0 END) as total_expense
     FROM transactions
+    WHERE date NOT IN (SELECT date FROM holidays)
     GROUP BY date
-    ORDER BY date DESC
+    ORDER BY date ASC
   `;
   db.all(query, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
