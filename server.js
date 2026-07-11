@@ -187,26 +187,67 @@ app.post('/api/auth/change-password', authenticateToken, (req, res) => {
 
 
 /* ══════════════════════════════════════
+   CHANGE EMAIL (authenticated)
+══════════════════════════════════════ */
+app.post('/api/auth/change-email', authenticateToken, (req, res) => {
+  const { email } = req.body;
+  if (!email || !email.includes('@')) {
+    return res.status(400).json({ error: 'Please provide a valid email address' });
+  }
+  db.run('UPDATE users SET email = ? WHERE id = ?', [email.trim(), req.user.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, message: 'Email updated successfully.' });
+  });
+});
+
+/* ══════════════════════════════════════
    USER MANAGEMENT (MD ONLY)
 ══════════════════════════════════════ */
 app.get('/api/users', authenticateToken, requireMD, (req, res) => {
-  db.all('SELECT id, username, role, created_at FROM users ORDER BY created_at DESC', (err, rows) => {
+  db.all('SELECT id, username, role, email, created_at FROM users ORDER BY created_at DESC', (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
 app.post('/api/users', authenticateToken, requireMD, (req, res) => {
-  const { username, password, role } = req.body;
-  if (!username || !password || !role) return res.status(400).json({ error: 'All fields required' });
+  const { username, password, role, email } = req.body;
+  if (!username || !password || !role) return res.status(400).json({ error: 'username, password and role are required' });
   
   const hash = bcrypt.hashSync(password, 8);
-  db.run('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)', [username, hash, role], function(err) {
+  db.run('INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, ?, ?)', [username, hash, role, email || ''], function(err) {
     if (err) {
       if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'Username already exists' });
       return res.status(500).json({ error: err.message });
     }
     res.json({ success: true, id: this.lastID });
+  });
+});
+
+// Update user details (role, email)
+app.put('/api/users/:id', authenticateToken, requireMD, (req, res) => {
+  const { role, email } = req.body;
+  const { id } = req.params;
+  const fields = [];
+  const values = [];
+  if (role)  { fields.push('role = ?');  values.push(role); }
+  if (email !== undefined) { fields.push('email = ?'); values.push(email); }
+  if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
+  values.push(id);
+  db.run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+// Admin reset password for any user
+app.put('/api/users/:id/reset-password', authenticateToken, requireMD, (req, res) => {
+  const { newPassword } = req.body;
+  if (!newPassword || newPassword.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  const hash = bcrypt.hashSync(newPassword, 8);
+  db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
   });
 });
 
@@ -408,12 +449,13 @@ app.get('/api/bills/next-invoice', authenticateToken, (req, res) => {
 
 // Save a bill
 app.post('/api/bills', authenticateToken, (req, res) => {
-  const { invoice_no, date, items, total } = req.body;
+  const { invoice_no, date, items, total, customer_name } = req.body;
   if (!invoice_no || !items || !total) return res.status(400).json({ error: 'Missing fields' });
+  const customer = customer_name || 'Cash';
 
   db.run(
-    `INSERT INTO bills (invoice_no, date, items_json, total) VALUES (?,?,?,?)`,
-    [invoice_no, date, JSON.stringify(items), total],
+    `INSERT INTO bills (invoice_no, date, items_json, total, customer_name) VALUES (?,?,?,?,?)`,
+    [invoice_no, date, JSON.stringify(items), total, customer],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       // Increment next_invoice counter
@@ -429,6 +471,7 @@ app.get('/api/bills', authenticateToken, requireMD, (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows.map(r => ({
       id: r.id, invoice_no: r.invoice_no, date: r.date,
+      customer_name: r.customer_name || 'Cash',
       items: JSON.parse(r.items_json || '[]'),
       total: r.total, created_at: r.created_at
     })));
@@ -441,7 +484,65 @@ app.get('/api/bills/:id', authenticateToken, requireMD, (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!r)  return res.status(404).json({ error: 'Not found' });
     res.json({ id:r.id, invoice_no:r.invoice_no, date:r.date,
+               customer_name: r.customer_name || 'Cash',
                items: JSON.parse(r.items_json||'[]'), total:r.total, created_at:r.created_at });
+  });
+});
+
+/* ══════════════════════════════════════
+   STOCK MANAGEMENT
+══════════════════════════════════════ */
+
+// Get all stock items
+app.get('/api/stock', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM stock ORDER BY item_name', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// Add or update a stock item
+app.post('/api/stock', authenticateToken, requireMD, (req, res) => {
+  const { item_name, quantity, unit, low_alert } = req.body;
+  if (!item_name) return res.status(400).json({ error: 'item_name is required' });
+  db.run(
+    `INSERT INTO stock (item_name, quantity, unit, low_alert, updated_at)
+     VALUES (?,?,?,?, datetime('now','localtime'))
+     ON CONFLICT(item_name) DO UPDATE SET
+       quantity=excluded.quantity, unit=excluded.unit,
+       low_alert=excluded.low_alert, updated_at=excluded.updated_at`,
+    [item_name, quantity||0, unit||'pcs', low_alert!=null?low_alert:10],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true });
+    }
+  );
+});
+
+// Adjust stock quantity (add/subtract)
+app.put('/api/stock/:item_name', authenticateToken, requireMD, (req, res) => {
+  const { delta, quantity } = req.body; // delta = ±amount, or set absolute quantity
+  const name = decodeURIComponent(req.params.item_name);
+  if (quantity !== undefined) {
+    db.run(`UPDATE stock SET quantity=?, updated_at=datetime('now','localtime') WHERE item_name=?`,
+      [quantity, name], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+      });
+  } else {
+    db.run(`UPDATE stock SET quantity=MAX(0,quantity+?), updated_at=datetime('now','localtime') WHERE item_name=?`,
+      [delta||0, name], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+      });
+  }
+});
+
+// Delete stock item
+app.delete('/api/stock/:id', authenticateToken, requireMD, (req, res) => {
+  db.run('DELETE FROM stock WHERE id=?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
   });
 });
 

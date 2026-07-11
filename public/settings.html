@@ -137,6 +137,22 @@
     </div>
 
     <!-- Change Password -->
+    <!-- Change Email -->
+    <div class="settings-section" style="margin-top: 20px;">
+      <h3>📧 Change My Email</h3>
+      <div id="email-alert" style="display:none; padding:12px; border-radius:8px; margin-bottom:16px; font-size:14px; font-weight:500;"></div>
+      <div class="settings-grid">
+        <div class="form-group-dark">
+          <label>New Email Address</label>
+          <input type="email" id="new-email-input" placeholder="Enter your new email">
+        </div>
+        <div class="form-group-dark" style="display:flex; align-items:flex-end;">
+          <button class="btn" onclick="changeMyEmail()" style="height:46px;">Update Email</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Change Password -->
     <div class="settings-section" style="margin-top: 20px;">
       <h3>🔐 Change Password</h3>
       <div id="pwd-alert" style="display:none; padding:12px; border-radius:8px; margin-bottom:16px; font-size:14px; font-weight:500;"></div>
@@ -329,6 +345,35 @@
       setTimeout(() => logout(), 2500);
     } catch {
       setPwdAlert('Network error. Is the server running?');
+    }
+  }
+
+  function setEmailAlert(msg, success=false) {
+    const el = document.getElementById('email-alert');
+    el.textContent = msg;
+    el.style.display = 'block';
+    el.style.background = success ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.12)';
+    el.style.color       = success ? '#6ee7b7' : '#fca5a5';
+    el.style.border      = success ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(239,68,68,0.3)';
+  }
+
+  async function changeMyEmail() {
+    const email = document.getElementById('new-email-input').value.trim();
+    if (!email || !email.includes('@')) {
+      setEmailAlert('Please enter a valid email address.'); return;
+    }
+    try {
+      const res = await fetch('/api/auth/change-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (!res.ok) { setEmailAlert(data.error || 'Failed to update email.'); return; }
+      setEmailAlert('✅ Email updated successfully!', true);
+      document.getElementById('new-email-input').value = '';
+    } catch {
+      setEmailAlert('Network error. Is the server running?');
     }
   }
 

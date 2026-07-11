@@ -97,6 +97,19 @@ db.serialize(() => {
     description TEXT
   )`);
 
+  // ── Stock table ──────────────────────────────────────────────
+  db.run(`CREATE TABLE IF NOT EXISTS stock (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_name   TEXT UNIQUE,
+    quantity    REAL DEFAULT 0,
+    unit        TEXT DEFAULT 'pcs',
+    low_alert   REAL DEFAULT 10,
+    updated_at  TEXT DEFAULT (datetime('now','localtime'))
+  )`);
+
+  // Migration: add customer_name to bills
+  db.run(`ALTER TABLE bills ADD COLUMN customer_name TEXT DEFAULT 'Cash'`, () => {});
+
   // Seed items if empty
   db.get('SELECT COUNT(*) as count FROM items', (err, row) => {
     if (err || row.count > 0) return;

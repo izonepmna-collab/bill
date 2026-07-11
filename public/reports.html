@@ -576,12 +576,88 @@
     }
   }
 
+  /* ── Holidays ── */
+  async function loadHolidays() {
+    try {
+      const res = await fetch('/api/holidays', { headers: { 'Authorization': 'Bearer ' + token } });
+      const holidays = await res.json();
+      const list = document.getElementById('holidays-list');
+      list.innerHTML = '';
+      if (!holidays.length) {
+        list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:4px;">No holidays set.</div>';
+        return;
+      }
+      holidays.forEach(h => {
+        const d = document.createElement('div');
+        d.className = 'tx-item';
+        const displayDate = new Date(h.date).toLocaleDateString('en-IN', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
+        d.innerHTML = `
+          <div class="tx-info">
+            <span class="tx-remarks">🌴 ${h.description || 'Closed'}</span>
+            <span class="tx-subtext">${displayDate}</span>
+          </div>
+          <button class="delete-btn" onclick="deleteHoliday('${h.date}')" title="Remove Holiday">🗑️</button>
+        `;
+        list.appendChild(d);
+      });
+    } catch (e) {
+      console.error('Failed to load holidays', e);
+    }
+  }
+
+  async function addHoliday() {
+    const date = document.getElementById('holiday-date').value;
+    const description = document.getElementById('holiday-desc').value.trim() || 'Shop Closed';
+    if (!date) return alert('Please pick a date for the holiday.');
+    try {
+      const res = await fetch('/api/holidays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ date, description })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Server error');
+      }
+      showToast('🌴 Holiday set!');
+      document.getElementById('holiday-date').value = '';
+      document.getElementById('holiday-desc').value = '';
+      await loadHolidays();
+      await loadSummary(); // refresh chart to exclude this date
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+    }
+  }
+
+  async function deleteHoliday(date) {
+    if (!confirm(`Remove holiday on ${date}?`)) return;
+    try {
+      const res = await fetch(`/api/holidays/${date}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) throw new Error();
+      showToast('✅ Holiday removed');
+      await loadHolidays();
+      await loadSummary();
+    } catch (e) {
+      showToast('Failed to remove holiday', 'error');
+    }
+  }
+
   function showToast(msg, type='success') {
     const old = document.getElementById('tst'); if(old) old.remove();
     const colors={success:'#10b981',warn:'#f59e0b',error:'#ef4444'};
     const t=document.createElement('div'); t.id='tst'; t.className='toast';
     t.style.background = colors[type] || colors.success;
     t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3000);
+  }
+
+  function toggleSidebar() {
+    const sidebar = document.querySelector('.products-sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar) sidebar.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('open');
   }
 
   init();
